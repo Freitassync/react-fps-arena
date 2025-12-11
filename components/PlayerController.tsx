@@ -30,11 +30,14 @@ export const PlayerController: React.FC = () => {
   // Physics state
   const velocity = useRef(new THREE.Vector3());
   const isJumping = useRef(false);
-  const controlsRef = useRef<any>(null); // PointerLockControls type is generic in Drei
+  const controlsRef = useRef<any>(null); 
   
   // Raycaster for shooting
   const raycaster = useRef(new THREE.Raycaster());
   const [lastShot, setLastShot] = useState(0);
+
+  // Network Throttling
+  const lastNetworkUpdate = useRef(0);
 
   // Sync state with pointer lock
   useEffect(() => {
@@ -54,32 +57,26 @@ export const PlayerController: React.FC = () => {
       if (now - lastShot < 400) return; // Fire rate limit
       setLastShot(now);
 
-      // Trigger visual recoil or sound here if needed
-
       // Raycast Logic
       raycaster.current.setFromCamera(new THREE.Vector2(0, 0), camera);
-      raycaster.current.far = MELEE_RANGE * 4; // Shooting range
+      raycaster.current.far = MELEE_RANGE * 10;
 
-      // Get all enemy meshes
-      // Note: In a complex scene we would use layers or specific lists, here we just intersect everything
-      // and filter by userData
       const intersects = raycaster.current.intersectObjects(scene.children, true);
 
       for (const hit of intersects) {
-         // Check if we hit an enemy
+         // Check if we hit an enemy (Bot)
          if (hit.object.userData && hit.object.userData.type === 'enemy') {
-            const enemyId = hit.object.userData.id;
-            store.damageEnemy(enemyId, 25); // 25 damage
-            
-            // Visual feedback
-            const feedbackEl = document.getElementById('hit-feedback');
-            if (feedbackEl) {
-                feedbackEl.style.opacity = '1';
-                setTimeout(() => feedbackEl.style.opacity = '0', 100);
-            }
-            break; // Only hit the first thing
+            store.damageEnemy(hit.object.userData.id, 25);
+            triggerFeedback();
+            break;
          }
-         // Stop if we hit a wall/floor
+         // Check if we hit a Remote Player
+         if (hit.object.userData && hit.object.userData.type === 'remote_player') {
+             store.shootRemotePlayer(hit.object.userData.id);
+             triggerFeedback();
+             break;
+         }
+
          if (hit.object.userData.type === 'environment') {
              break;
          }
@@ -90,6 +87,13 @@ export const PlayerController: React.FC = () => {
     return () => window.removeEventListener('mousedown', handleMouseDown);
   }, [store.isPlaying, store.gameOver, camera, scene, lastShot]);
 
+  const triggerFeedback = () => {
+    const feedbackEl = document.getElementById('hit-feedback');
+    if (feedbackEl) {
+        feedbackEl.style.opacity = '1';
+        setTimeout(() => feedbackEl.style.opacity = '0', 100);
+    }
+  };
 
   useFrame((state, delta) => {
     if (!store.isPlaying || store.gameOver) return;
@@ -114,7 +118,6 @@ export const PlayerController: React.FC = () => {
       .multiplyScalar(moveSpeed)
       .applyEuler(camera.rotation);
 
-    // Apply movement velocity
     velocity.current.x = direction.x;
     velocity.current.z = direction.z;
 
@@ -124,19 +127,29 @@ export const PlayerController: React.FC = () => {
       isJumping.current = true;
     }
 
-    // Gravity
     velocity.current.y -= GRAVITY * delta;
 
-    // Apply velocity to camera (player)
     controlsRef.current.getObject().position.x += velocity.current.x * delta;
     controlsRef.current.getObject().position.y += velocity.current.y * delta;
     controlsRef.current.getObject().position.z += velocity.current.z * delta;
 
-    // Floor Collision (Simple y > 1 check, assuming player height is 2 units, eyes at 1.6)
     if (controlsRef.current.getObject().position.y < 1.6) {
       velocity.current.y = 0;
       controlsRef.current.getObject().position.y = 1.6;
       isJumping.current = false;
+    }
+
+    // --- Network Update ---
+    const now = Date.now();
+    if (store.socket && store.socket.connected && now - lastNetworkUpdate.current > 50) { // 20 times a second
+        const pos = controlsRef.current.getObject().position;
+        // Rotation is tricky with pointer lock, we mainly care about camera rotation Y (looking left/right)
+        // But Camera is a child of object... actually in Drei PointerLock, camera *is* the object or child.
+        // We will just send position for now for simplicity, or grab camera rotation.
+        const rot = [camera.rotation.x, camera.rotation.y, camera.rotation.z];
+        
+        store.updateLocalPosition([pos.x, pos.y, pos.z], [rot[0], rot[1], rot[2]]);
+        lastNetworkUpdate.current = now;
     }
   });
 

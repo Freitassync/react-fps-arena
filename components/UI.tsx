@@ -2,7 +2,7 @@ import React from 'react';
 import { useGameStore } from '../store';
 
 export const UI: React.FC = () => {
-  const { localPlayer, isPlaying, gameOver, respawnPlayer, setPlaying } = useGameStore();
+  const { localPlayer, isPlaying, gameOver, respawnPlayer, setPlaying, connectToServer, socket } = useGameStore();
 
   if (gameOver) {
     return (
@@ -23,21 +23,42 @@ export const UI: React.FC = () => {
     return (
       <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/60 text-white backdrop-blur-sm">
         <h1 className="text-5xl font-bold mb-2">FPS ARENA</h1>
-        <p className="mb-8 text-gray-300">React + Three.js + Zustand</p>
-        <div className="bg-gray-900 p-6 rounded-lg border border-gray-700 max-w-md text-center">
-            <p className="mb-4">Controls:</p>
-            <ul className="text-left text-sm space-y-2 mb-6 text-gray-400">
+        <p className="mb-8 text-gray-300">React + Three.js + Socket.io</p>
+        <div className="bg-gray-900 p-6 rounded-lg border border-gray-700 max-w-md text-center w-full">
+            <p className="mb-4 text-gray-400">Controls:</p>
+            <ul className="text-left text-sm space-y-2 mb-6 text-gray-500">
                 <li>• <b>WASD</b> to Move</li>
                 <li>• <b>SPACE</b> to Jump</li>
-                <li>• <b>MOUSE</b> to Look</li>
                 <li>• <b>CLICK</b> to Shoot</li>
             </ul>
-            <button 
-            onClick={() => setPlaying(true)}
-            className="w-full px-6 py-3 bg-blue-600 font-bold rounded hover:bg-blue-500 transition"
-            >
-            CLICK TO START
-            </button>
+            
+            <div className="flex flex-col gap-3">
+                <button 
+                onClick={() => setPlaying(true)}
+                className="w-full px-6 py-3 bg-blue-600 font-bold rounded hover:bg-blue-500 transition"
+                >
+                SINGLE PLAYER (VS BOTS)
+                </button>
+
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => connectToServer()}
+                        disabled={!!socket}
+                        className={`flex-1 px-4 py-3 font-bold rounded transition border ${socket ? 'bg-green-800 border-green-600 text-green-200' : 'bg-transparent border-white text-white hover:bg-white/10'}`}
+                    >
+                        {socket ? 'CONNECTED' : 'CONNECT TO SERVER'}
+                    </button>
+                    {socket && (
+                         <button 
+                         onClick={() => setPlaying(true)}
+                         className="flex-1 px-4 py-3 bg-green-600 font-bold rounded hover:bg-green-500 transition text-white"
+                         >
+                         PLAY ONLINE
+                         </button>
+                    )}
+                </div>
+                {!socket && <p className="text-xs text-gray-500 mt-2">To play online, run <code>node server.js</code> locally.</p>}
+            </div>
         </div>
       </div>
     );
@@ -73,6 +94,11 @@ export const UI: React.FC = () => {
                         style={{ width: `${(localPlayer.hp / localPlayer.maxHp) * 100}%` }}
                     />
                 </div>
+            </div>
+            
+            {/* Server Status Indicator */}
+            <div className="mb-2">
+                <div className={`w-3 h-3 rounded-full ${socket?.connected ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]' : 'bg-red-500'}`} title={socket?.connected ? "Online" : "Offline"} />
             </div>
         </div>
       </div>

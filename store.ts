@@ -1,25 +1,33 @@
 import { create } from 'zustand';
 import { PlayerState } from './types';
-import * as THREE from 'three';
+import io, { Socket } from 'socket.io-client';
 
 interface GameStore {
   localPlayer: PlayerState;
-  enemies: PlayerState[];
+  enemies: PlayerState[]; // Bots
+  remotePlayers: PlayerState[]; // Real Humans
+  
   isPlaying: boolean;
   gameOver: boolean;
+  socket: Socket | null;
   
   // Actions
   setPlaying: (playing: boolean) => void;
   damageEnemy: (id: string, amount: number) => void;
   damagePlayer: (amount: number) => void;
-  updateEnemyPosition: (id: string, position: [number, number, number]) => void;
+  
   respawnEnemy: (id: string) => void;
   respawnPlayer: () => void;
-  resetGame: () => void;
+  
+  // Multiplayer Actions
+  connectToServer: () => void;
+  updateLocalPosition: (pos: [number, number, number], rot: [number, number, number]) => void;
+  shootRemotePlayer: (targetId: string) => void;
 }
 
 const INITIAL_HP = 100;
 
+// Bots for offline/mixed mode
 const generateEnemies = (count: number): PlayerState[] => {
   return Array.from({ length: count }).map((_, i) => ({
     id: `bot-${i}`,
@@ -44,11 +52,95 @@ export const useGameStore = create<GameStore>((set, get) => ({
     isDead: false,
     score: 0,
   },
-  enemies: generateEnemies(5),
+  enemies: generateEnemies(3),
+  remotePlayers: [],
   isPlaying: false,
   gameOver: false,
+  socket: null,
 
   setPlaying: (playing) => set({ isPlaying: playing }),
+
+  connectToServer: () => {
+    const existingSocket = get().socket;
+    if (existingSocket) return;
+
+    // Connect to localhost by default. 
+    // In a real scenario, the user changes this to their server IP.
+    const socket = io('http://localhost:3000', {
+        autoConnect: true,
+        reconnection: false // Don't spam reconnect in preview
+    });
+
+    socket.on('connect', () => {
+        console.log('Connected to Multiplayer Server with ID:', socket.id);
+        set((state) => ({ 
+            localPlayer: { ...state.localPlayer, id: socket.id || 'hero' } 
+        }));
+    });
+
+    socket.on('currentPlayers', (players: Record<string, PlayerState>) => {
+        const remoteList = Object.values(players).filter(p => p.id !== socket.id);
+        set({ remotePlayers: remoteList.map(p => ({ ...p, isRemote: true })) });
+    });
+
+    socket.on('newPlayer', (player: PlayerState) => {
+        set((state) => ({ 
+            remotePlayers: [...state.remotePlayers, { ...player, isRemote: true }] 
+        }));
+    });
+
+    socket.on('playerDisconnected', (id: string) => {
+        set((state) => ({
+            remotePlayers: state.remotePlayers.filter(p => p.id !== id)
+        }));
+    });
+
+    socket.on('playerMoved', (data: { id: string, position: [number, number, number], rotation: [number, number, number] }) => {
+        set((state) => ({
+            remotePlayers: state.remotePlayers.map(p => 
+                p.id === data.id 
+                ? { ...p, position: data.position, rotation: data.rotation }
+                : p
+            )
+        }));
+    });
+
+    socket.on('playerDamaged', (data: { id: string, hp: number }) => {
+        const { localPlayer, remotePlayers } = get();
+        
+        if (localPlayer.id === data.id) {
+            set({ localPlayer: { ...localPlayer, hp: data.hp, isDead: data.hp <= 0 }, gameOver: data.hp <= 0 });
+        } else {
+            set({ 
+                remotePlayers: remotePlayers.map(p => p.id === data.id ? { ...p, hp: data.hp } : p)
+            });
+        }
+    });
+
+    set({ socket });
+  },
+
+  updateLocalPosition: (pos, rot) => {
+      const { socket, localPlayer } = get();
+      
+      // Update local state less frequently or directly? 
+      // Ideally we rely on physics locally, but we need to store it to show in UI?
+      // For now, we only care about sending it.
+      
+      if (socket && socket.connected) {
+          socket.emit('playerMovement', { position: pos, rotation: rot });
+      }
+      
+      // Update store for local UI references
+      // set({ localPlayer: { ...localPlayer, position: pos, rotation: rot } }); 
+  },
+
+  shootRemotePlayer: (targetId) => {
+      const { socket } = get();
+      if (socket && socket.connected) {
+          socket.emit('playerShoot', targetId);
+      }
+  },
 
   damageEnemy: (id, amount) => {
     set((state) => {
@@ -58,7 +150,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
           const isDead = newHp === 0;
           
           if (isDead && !e.isDead) {
-            // Update score
              setTimeout(() => get().respawnEnemy(id), 3000);
           }
           return { ...e, hp: newHp, isDead };
@@ -66,7 +157,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
         return e;
       });
       
-      // Increment score if killed
       const enemy = state.enemies.find(e => e.id === id);
       let newScore = state.localPlayer.score;
       if (enemy && enemy.hp > 0 && enemies.find(e => e.id === id)?.isDead) {
@@ -89,12 +179,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
   },
 
-  updateEnemyPosition: (id, position) => {
-    set((state) => ({
-      enemies: state.enemies.map((e) => (e.id === id ? { ...e, position } : e)),
-    }));
-  },
-
   respawnEnemy: (id) => {
     set((state) => ({
       enemies: state.enemies.map((e) =>
@@ -113,27 +197,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   respawnPlayer: () => {
     set((state) => ({
       localPlayer: { ...state.localPlayer, hp: INITIAL_HP, isDead: false, score: 0 },
-      enemies: generateEnemies(5), // Reset enemies too
+      enemies: generateEnemies(3),
       gameOver: false,
       isPlaying: true
     }));
+    // Reconnect socket if dropped?
   },
-
-  resetGame: () => {
-     set({
-        localPlayer: {
-            id: 'hero',
-            position: [0, 1, 0],
-            rotation: [0, 0, 0],
-            color: '#00ff00',
-            hp: INITIAL_HP,
-            maxHp: INITIAL_HP,
-            isDead: false,
-            score: 0,
-          },
-          enemies: generateEnemies(5),
-          isPlaying: false,
-          gameOver: false,
-     })
-  }
 }));

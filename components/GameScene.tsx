@@ -3,10 +3,12 @@ import { Canvas } from '@react-three/fiber';
 import { Sky, Stars } from '@react-three/drei';
 import { PlayerController } from './PlayerController';
 import { Enemy } from './Enemy';
+import { RemotePlayer } from './RemotePlayer';
 import { useGameStore } from '../store';
 
 export const GameScene: React.FC = () => {
   const enemies = useGameStore((state) => state.enemies);
+  const remotePlayers = useGameStore((state) => state.remotePlayers);
 
   return (
     <div className="w-full h-full absolute inset-0 bg-black">
@@ -48,8 +50,14 @@ export const GameScene: React.FC = () => {
         {/* Entities */}
         <PlayerController />
         
+        {/* Local Bots */}
         {enemies.map((enemy) => (
           <Enemy key={enemy.id} data={enemy} />
+        ))}
+
+        {/* Remote Real Players */}
+        {remotePlayers.map((player) => (
+           <RemotePlayer key={player.id} data={player} />
         ))}
 
       </Canvas>

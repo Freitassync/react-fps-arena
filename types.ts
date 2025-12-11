@@ -9,6 +9,7 @@ export interface PlayerState {
   maxHp: number;
   isDead: boolean;
   score: number;
+  isRemote?: boolean; // True for other real players
 }
 
 export interface Bullet {
