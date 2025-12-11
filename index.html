@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>React FPS Arena</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #111; }
+      #root { height: 100%; width: 100%; }
+      /* Crosshair centering */
+      .crosshair {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 20px;
+        height: 20px;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        z-index: 50;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react/": "https://esm.sh/react@18.3.1/",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/": "https://esm.sh/react-dom@18.3.1/",
+    "three": "https://esm.sh/three@0.164.1",
+    "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.16.6?external=react,react-dom,three",
+    "@react-three/drei": "https://esm.sh/@react-three/drei@9.105.6?external=react,react-dom,three,@react-three/fiber",
+    "zustand": "https://esm.sh/zustand@4.5.2?external=react"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

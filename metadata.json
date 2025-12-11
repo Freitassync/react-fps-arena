@@ -1,0 +1,5 @@
+{
+  "name": "React FPS Arena",
+  "description": "A browser-based first-person shooter featuring simulated multiplayer combat, raycasting physics, and dynamic 3D environments using React Three Fiber.",
+  "requestFramePermissions": []
+}
