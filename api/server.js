@@ -1,14 +1,10 @@
-
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
-import path from 'path';
-
 
 const app = express();
 const server = http.createServer(app);
 
-// Allow CORS for development
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -16,14 +12,11 @@ const io = new Server(server, {
   }
 });
 
-// Game State on Server
 let players = {};
-
 
 io.on('connection', (socket) => {
   console.log('Player connected:', socket.id);
 
-  // Initialize new player
   players[socket.id] = {
     id: socket.id,
     position: [0, 2, 0],
@@ -35,13 +28,9 @@ io.on('connection', (socket) => {
     score: 0
   };
 
-  // Send current state to new player
   socket.emit('currentPlayers', players);
-
-  // Notify others of new player
   socket.broadcast.emit('newPlayer', players[socket.id]);
 
-  // Handle Movement
   socket.on('playerMovement', (movementData) => {
     if (players[socket.id]) {
       players[socket.id].position = movementData.position;
@@ -54,19 +43,16 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle Damage/Shooting
   socket.on('playerShoot', (targetId) => {
     if (players[targetId]) {
       players[targetId].hp -= 10;
       io.emit('playerDamaged', { id: targetId, hp: players[targetId].hp });
-      
       if (players[targetId].hp <= 0 && !players[targetId].isDead) {
-         players[targetId].isDead = true;
-         // Increment score of shooter
-         if (players[socket.id]) {
-            players[socket.id].score += 100;
-            io.emit('scoreUpdate', { id: socket.id, score: players[socket.id].score });
-         }
+        players[targetId].isDead = true;
+        if (players[socket.id]) {
+          players[socket.id].score += 100;
+          io.emit('scoreUpdate', { id: socket.id, score: players[socket.id].score });
+        }
       }
     }
   });
@@ -78,7 +64,11 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+export default function handler(req, res) {
+  if (!server.listening) {
+    server.listen(3001, () => {
+      console.log('Socket.io server started on port 3001');
+    });
+  }
+  res.end('Socket.io server running');
+}
