@@ -5,7 +5,6 @@ import { Server } from 'socket.io';
 const app = express();
 const server = http.createServer(app);
 
-// Allow CORS for development
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -13,33 +12,41 @@ const io = new Server(server, {
   }
 });
 
-// Game State on Server
 let players = {};
 
 io.on('connection', (socket) => {
   console.log('Player connected:', socket.id);
 
-  // Initialize new player
+  // Initialize with temporary data, waiting for 'joinGame'
   players[socket.id] = {
     id: socket.id,
-    position: [0, 2, 0],
+    name: `Player ${socket.id.substr(0,4)}`,
+    position: [0, 5, 0],
     rotation: [0, 0, 0],
-    color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+    color: `hsl(${Math.random() * 360}, 80%, 50%)`,
     hp: 100,
     maxHp: 100,
     isDead: false,
-    score: 0
+    score: 0,
+    kills: 0,
+    deaths: 0
   };
 
-  // Send current state to new player
   socket.emit('currentPlayers', players);
-
-  // Notify others of new player
   socket.broadcast.emit('newPlayer', players[socket.id]);
 
-  // Handle Movement
-  socket.on('playerMovement', (movementData) => {
+  // Handle Player Join (Setting Name)
+  socket.on('joinGame', (name) => {
     if (players[socket.id]) {
+      players[socket.id].name = name.substring(0, 15) || 'Unknown';
+      players[socket.id].isDead = false;
+      players[socket.id].hp = 100;
+      io.emit('updatePlayerState', players[socket.id]);
+    }
+  });
+
+  socket.on('playerMovement', (movementData) => {
+    if (players[socket.id] && !players[socket.id].isDead) {
       players[socket.id].position = movementData.position;
       players[socket.id].rotation = movementData.rotation;
       socket.broadcast.emit('playerMoved', {
@@ -50,21 +57,42 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle Damage/Shooting
   socket.on('playerShoot', (targetId) => {
-    if (players[targetId]) {
-      players[targetId].hp -= 10;
-      io.emit('playerDamaged', { id: targetId, hp: players[targetId].hp });
+    const shooter = players[socket.id];
+    const victim = players[targetId];
+
+    if (shooter && victim && !victim.isDead) {
+      victim.hp -= 15; // Damage per shot
+      io.emit('playerDamaged', { id: targetId, hp: victim.hp });
       
-      if (players[targetId].hp <= 0 && !players[targetId].isDead) {
-         players[targetId].isDead = true;
-         // Increment score of shooter
-         if (players[socket.id]) {
-            players[socket.id].score += 100;
-            io.emit('scoreUpdate', { id: socket.id, score: players[socket.id].score });
-         }
+      if (victim.hp <= 0) {
+         victim.isDead = true;
+         victim.deaths += 1;
+         shooter.kills += 1;
+         shooter.score += 100;
+         
+         // Notify everyone of the kill
+         io.emit('killFeed', {
+            id: Date.now().toString(),
+            killerName: shooter.name,
+            victimName: victim.name,
+            timestamp: Date.now()
+         });
+
+         // Sync stats
+         io.emit('updatePlayerState', shooter);
+         io.emit('updatePlayerState', victim);
       }
     }
+  });
+
+  socket.on('respawnRequest', () => {
+     if (players[socket.id]) {
+        players[socket.id].isDead = false;
+        players[socket.id].hp = 100;
+        players[socket.id].position = [(Math.random() - 0.5) * 40, 5, (Math.random() - 0.5) * 40];
+        io.emit('updatePlayerState', players[socket.id]);
+     }
   });
 
   socket.on('disconnect', () => {
