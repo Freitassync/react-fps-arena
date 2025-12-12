@@ -1,9 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGameStore } from '../store';
 
 export const UI: React.FC = () => {
   const { localPlayer, isPlaying, gameOver, respawnPlayer, setPlaying, connectToServer, socket } = useGameStore();
-  const [serverUrl, setServerUrl] = useState('http://localhost:3000');
+  const [serverUrl, setServerUrl] = useState('');
+
+  // Load URL from local storage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('fps_server_url');
+    setServerUrl(saved || 'http://localhost:3000');
+  }, []);
+
+  const handleConnect = () => {
+      localStorage.setItem('fps_server_url', serverUrl);
+      connectToServer(serverUrl);
+  };
 
   if (gameOver) {
     return (
@@ -50,11 +61,11 @@ export const UI: React.FC = () => {
                         value={serverUrl} 
                         onChange={(e) => setServerUrl(e.target.value)}
                         className="bg-black border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-blue-500 outline-none"
-                        placeholder="http://localhost:3000 or https://your-render-app.com"
+                        placeholder="https://your-app.onrender.com"
                     />
                     <div className="flex gap-2">
                         <button 
-                            onClick={() => connectToServer(serverUrl)}
+                            onClick={handleConnect}
                             disabled={!!socket}
                             className={`flex-1 px-4 py-3 font-bold rounded transition border ${socket ? 'bg-green-800 border-green-600 text-green-200' : 'bg-transparent border-white text-white hover:bg-white/10'}`}
                         >

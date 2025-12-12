@@ -123,6 +123,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
     });
 
+    socket.on('scoreUpdate', (data: { id: string, score: number }) => {
+        const { localPlayer, remotePlayers } = get();
+        if (localPlayer.id === data.id) {
+            set({ localPlayer: { ...localPlayer, score: data.score } });
+        } else {
+             set({ 
+                remotePlayers: remotePlayers.map(p => p.id === data.id ? { ...p, score: data.score } : p)
+            });
+        }
+    });
+
     set({ socket });
   },
 
