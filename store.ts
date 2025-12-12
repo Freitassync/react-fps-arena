@@ -19,7 +19,7 @@ interface GameStore {
   updateLocalPosition: (pos: [number, number, number], rot: [number, number, number]) => void;
 }
 
-const SERVER_URL = "https://react-fps-arena.onrender.com";
+const SERVER_URL = "https://react-fps-arena.vercel.app/";
 
 export const useGameStore = create<GameStore>((set, get) => ({
   localPlayer: {
