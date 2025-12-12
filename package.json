@@ -15,7 +15,10 @@
     "@react-three/fiber": "8.16.6",
     "@react-three/drei": "9.105.6",
     "zustand": "4.5.2",
-    "socket.io-client": "4.7.5"
+    "socket.io-client": "4.7.5",
+    "express": "^5.2.1",
+    "socket.io": "^4.8.1",
+    "http": "^0.0.1-security"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
