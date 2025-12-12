@@ -1,9 +1,7 @@
-
-import express from 'express';
-import http from 'http';
-import { Server } from 'socket.io';
-import path from 'path';
-
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -18,7 +16,6 @@ const io = new Server(server, {
 
 // Game State on Server
 let players = {};
-
 
 io.on('connection', (socket) => {
   console.log('Player connected:', socket.id);

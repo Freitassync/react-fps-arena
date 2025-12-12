@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useGameStore } from '../store';
 
 export const UI: React.FC = () => {
   const { localPlayer, isPlaying, gameOver, respawnPlayer, setPlaying, connectToServer, socket } = useGameStore();
+  const [serverUrl, setServerUrl] = useState('http://localhost:3000');
 
   if (gameOver) {
     return (
@@ -40,24 +41,36 @@ export const UI: React.FC = () => {
                 SINGLE PLAYER (VS BOTS)
                 </button>
 
-                <div className="flex gap-2">
-                    <button 
-                        onClick={() => connectToServer()}
-                        disabled={!!socket}
-                        className={`flex-1 px-4 py-3 font-bold rounded transition border ${socket ? 'bg-green-800 border-green-600 text-green-200' : 'bg-transparent border-white text-white hover:bg-white/10'}`}
-                    >
-                        {socket ? 'CONNECTED' : 'CONNECT TO SERVER'}
-                    </button>
-                    {socket && (
-                         <button 
-                         onClick={() => setPlaying(true)}
-                         className="flex-1 px-4 py-3 bg-green-600 font-bold rounded hover:bg-green-500 transition text-white"
-                         >
-                         PLAY ONLINE
-                         </button>
-                    )}
+                <div className="h-px bg-gray-700 my-2"></div>
+
+                <div className="flex flex-col gap-2">
+                    <label className="text-xs text-left text-gray-400">Multiplayer Server URL:</label>
+                    <input 
+                        type="text" 
+                        value={serverUrl} 
+                        onChange={(e) => setServerUrl(e.target.value)}
+                        className="bg-black border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-blue-500 outline-none"
+                        placeholder="http://localhost:3000 or https://your-render-app.com"
+                    />
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => connectToServer(serverUrl)}
+                            disabled={!!socket}
+                            className={`flex-1 px-4 py-3 font-bold rounded transition border ${socket ? 'bg-green-800 border-green-600 text-green-200' : 'bg-transparent border-white text-white hover:bg-white/10'}`}
+                        >
+                            {socket ? 'CONNECTED' : 'CONNECT'}
+                        </button>
+                        {socket && (
+                            <button 
+                            onClick={() => setPlaying(true)}
+                            className="flex-1 px-4 py-3 bg-green-600 font-bold rounded hover:bg-green-500 transition text-white"
+                            >
+                            PLAY ONLINE
+                            </button>
+                        )}
+                    </div>
                 </div>
-                {!socket && <p className="text-xs text-gray-500 mt-2">To play online, run <code>node server.js</code> locally.</p>}
+                {!socket && <p className="text-xs text-gray-500 mt-2">Deploy <code>server.js</code> to Render/Glitch to play with friends.</p>}
             </div>
         </div>
       </div>

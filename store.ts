@@ -20,7 +20,7 @@ interface GameStore {
   respawnPlayer: () => void;
   
   // Multiplayer Actions
-  connectToServer: () => void;
+  connectToServer: (url: string) => void;
   updateLocalPosition: (pos: [number, number, number], rot: [number, number, number]) => void;
   shootRemotePlayer: (targetId: string) => void;
 }
@@ -60,15 +60,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setPlaying: (playing) => set({ isPlaying: playing }),
 
-  connectToServer: () => {
+  connectToServer: (url: string) => {
     const existingSocket = get().socket;
-    if (existingSocket) return;
+    if (existingSocket) {
+        existingSocket.disconnect();
+    }
 
-    // Connect to localhost by default. 
-    // In a real scenario, the user changes this to their server IP.
-    const socket = io('http://localhost:3000', {
+    // Connect to provided URL
+    const socket = io(url, {
         autoConnect: true,
-        reconnection: false // Don't spam reconnect in preview
+        reconnection: true
     });
 
     socket.on('connect', () => {
@@ -76,6 +77,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set((state) => ({ 
             localPlayer: { ...state.localPlayer, id: socket.id || 'hero' } 
         }));
+    });
+
+    socket.on('connect_error', (err) => {
+        console.error("Connection error:", err);
+        alert("Failed to connect to server. Check the URL.");
     });
 
     socket.on('currentPlayers', (players: Record<string, PlayerState>) => {
@@ -123,16 +129,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   updateLocalPosition: (pos, rot) => {
       const { socket, localPlayer } = get();
       
-      // Update local state less frequently or directly? 
-      // Ideally we rely on physics locally, but we need to store it to show in UI?
-      // For now, we only care about sending it.
-      
       if (socket && socket.connected) {
           socket.emit('playerMovement', { position: pos, rotation: rot });
       }
-      
-      // Update store for local UI references
-      // set({ localPlayer: { ...localPlayer, position: pos, rotation: rot } }); 
   },
 
   shootRemotePlayer: (targetId) => {
@@ -201,6 +200,5 @@ export const useGameStore = create<GameStore>((set, get) => ({
       gameOver: false,
       isPlaying: true
     }));
-    // Reconnect socket if dropped?
   },
 }));
